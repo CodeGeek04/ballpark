@@ -82,7 +82,20 @@ export function RoomClient({
     const channel = sb
       .channel(`room:${room.code}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, (payload) => {
-        if (payload.new) setRoom(payload.new as Room);
+        if (payload.new) {
+          const next = payload.new as Room;
+          setRoom(next);
+          // Restart-game: host wiped rounds and reset status to lobby.
+          // Clear round-derived client state so the view jumps cleanly back.
+          if (next.status === "lobby" && next.current_round === 0) {
+            setRound(null);
+            setQuestion(null);
+            setSubmissions([]);
+            setRevealAnswer(null);
+            setRevealCategory(null);
+            setScores({});
+          }
+        }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "players", filter: `room_id=eq.${room.id}` }, async () => {
         const { data } = await sb.from("players").select("*").eq("room_id", room.id).order("joined_at");
@@ -140,6 +153,28 @@ export function RoomClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.id, room.code]);
 
+  // Kick detection: if I have a `me` but the realtime-synced players list
+  // no longer contains my id (and the load has happened — players is the
+  // SSR-fetched initial list), the host removed me.
+  const wasKicked = !!me && players.length > 0 && !players.some((p) => p.id === me.id);
+  if (wasKicked) {
+    return (
+      <main className="min-h-dvh w-full">
+        <header className="px-6 sm:px-10 pt-6 flex justify-between items-center">
+          <Logo size={32} />
+        </header>
+        <div className="px-6 sm:px-10 py-10 max-w-md mx-auto">
+          <ChipStamp tone="ink">kicked</ChipStamp>
+          <h1 className="font-display font-bold text-4xl tracking-tight mt-3">the host removed you</h1>
+          <p className="font-mono text-sm leading-snug mt-3 opacity-80">no hard feelings. start your own room?</p>
+          <div className="mt-6">
+            <a href="/" className="inline-flex items-center gap-2 px-4 py-2 rounded-card border-2 border-ink bg-ember text-paper font-bold shadow-stamp-sm">start a new room →</a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (!me) {
     // Before the sessionStorage read completes we don't know if this browser
     // already has a player on file. Render nothing for that single frame
@@ -147,7 +182,7 @@ export function RoomClient({
     // the room on the previous page.
     if (!mounted) return null;
 
-    const ROOM_CAPACITY = 6;
+    const ROOM_CAPACITY = 8;
     const isFull = players.length >= ROOM_CAPACITY;
     const inProgress = room.status !== "lobby";
 
@@ -168,7 +203,7 @@ export function RoomClient({
     // Room is full OR game already running. Show a calm dead-end with options.
     const reason = isFull && !inProgress ? "room is full" : "game already in progress";
     const detail = isFull && !inProgress
-      ? `This room hit its 6-player limit. Start a new room and share the code.`
+      ? `This room hit its 8-player limit. Start a new room and share the code.`
       : `You can't slot into a game that's already started. Ask the host to start a new room when this one ends.`;
     return (
       <main className="min-h-dvh w-full">
@@ -193,7 +228,7 @@ export function RoomClient({
 
   let view: React.ReactNode = null;
   if (gameOver) {
-    view = <Ended room={room} players={players} scores={scores} />;
+    view = <Ended room={room} players={players} scores={scores} me={me} />;
   } else if (revealed && round && question && revealAnswer !== null) {
     view = (
       <Reveal

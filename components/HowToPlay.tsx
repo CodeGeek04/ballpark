@@ -92,7 +92,7 @@ export function HowToPlayButton({ tone = "ink" }: { tone?: "ink" | "paper" }) {
 
               <div className="mt-6 grid sm:grid-cols-3 gap-3 font-mono text-xs">
                 <Mode title="solo">play alone, 5 rounds, no lobby</Mode>
-                <Mode title="free-for-all">2 to 6 players race</Mode>
+                <Mode title="free-for-all">2 to 8 players race</Mode>
                 <Mode title="teams">2 teams, captain rotates each round</Mode>
               </div>
 

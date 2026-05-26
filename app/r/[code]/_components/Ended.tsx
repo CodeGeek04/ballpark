@@ -1,12 +1,44 @@
 "use client";
 
+import { useState } from "react";
 import type { Player, Room } from "@/lib/types";
 import { PaperCard } from "@/components/PaperCard";
+import { StampButton } from "@/components/StampButton";
 import { ChipStamp } from "@/components/ChipStamp";
 
-export function Ended({ room, players, scores }: { room: Room; players: Player[]; scores: Record<string, number> }) {
+export function Ended({
+  room,
+  players,
+  scores,
+  me,
+}: {
+  room: Room;
+  players: Player[];
+  scores: Record<string, number>;
+  me: Player;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function playAgain() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/restart-game", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ roomId: room.id, playerId: me.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "restart failed");
+      // Realtime UPDATE on rooms.status='lobby' takes over from here.
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  }
+
   if (room.mode === "solo") {
-    const me = players[0];
     const total = me ? scores[me.id] ?? 0 : 0;
     const max = room.round_count * 1000;
     const verdict = verdictFor(total / max);
@@ -22,9 +54,13 @@ export function Ended({ room, players, scores }: { room: Room; players: Player[]
             <div className="mt-6 font-display font-bold text-2xl tracking-tight">{verdict}</div>
           </div>
         </PaperCard>
-        <div className="flex justify-end">
-          <a href="/" className="inline-block font-mono underline underline-offset-4 decoration-2 hover:text-ember">play again →</a>
+        <div className="flex items-center justify-end gap-3">
+          <a href="/" className="font-mono underline underline-offset-4 decoration-2 hover:text-ember">leave</a>
+          <StampButton onClick={playAgain} disabled={busy} tone="ember" className="text-lg">
+            {busy ? "starting…" : "play again →"}
+          </StampButton>
         </div>
+        {error && <p className="font-mono text-sm text-ember font-bold text-right">{error}</p>}
       </div>
     );
   }
@@ -60,7 +96,18 @@ export function Ended({ room, players, scores }: { room: Room; players: Player[]
           ))}
         </ol>
       </PaperCard>
-      <a href="/" className="inline-block underline font-mono">← play again</a>
+
+      <div className="flex items-center justify-between gap-3">
+        <a href="/" className="font-mono underline underline-offset-4 decoration-2 hover:text-ember">leave</a>
+        {me.is_host ? (
+          <StampButton onClick={playAgain} disabled={busy} tone="ember" className="text-lg">
+            {busy ? "starting…" : "play again →"}
+          </StampButton>
+        ) : (
+          <span className="font-mono text-xs opacity-70">waiting for host to start a new game…</span>
+        )}
+      </div>
+      {error && <p className="font-mono text-sm text-ember font-bold text-right">{error}</p>}
     </div>
   );
 }

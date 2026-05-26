@@ -14,7 +14,7 @@ export default function Home() {
         <div className="grid gap-10 lg:grid-cols-[1.2fr_1fr] items-start">
           <div>
             <p className="font-mono text-xs tracking-[0.18em] uppercase text-ember font-bold mb-5">
-              Live · 1–6 players · 5 rounds
+              Live · 1–8 players · 5 rounds
             </p>
             <h1 className="font-display font-bold text-[clamp(3rem,8vw,5.5rem)] leading-[0.95] tracking-[-0.03em]">
               Guess the weirdest{" "}

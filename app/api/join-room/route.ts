@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   if (room.status !== "lobby") return NextResponse.json({ error: "room already started" }, { status: 409 });
 
   const { count } = await sb.from("players").select("id", { count: "exact", head: true }).eq("room_id", room.id);
-  if ((count ?? 0) >= 6) return NextResponse.json({ error: "room is full" }, { status: 409 });
+  if ((count ?? 0) >= 8) return NextResponse.json({ error: "room is full" }, { status: 409 });
 
   // Team mode: alternate team assignment by current count.
   const team = room.mode === "teams" ? ((count ?? 0) % 2 === 0 ? "B" : "A") : null;
