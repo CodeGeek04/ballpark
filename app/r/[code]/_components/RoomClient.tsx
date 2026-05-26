@@ -8,6 +8,7 @@ import { Round as RoundView } from "./Round";
 import { Reveal } from "./Reveal";
 import { Ended } from "./Ended";
 import { Logo } from "@/components/Logo";
+import { HowToPlayButton } from "@/components/HowToPlay";
 
 type PublicQuestion = {
   id: string;
@@ -176,11 +177,16 @@ export function RoomClient({
 
   return (
     <main className="min-h-dvh w-full">
-      <header className="px-6 sm:px-10 pt-6 flex justify-between items-center">
+      <header className="px-6 sm:px-10 pt-6 flex justify-between items-center gap-3">
         <Logo size={32} />
-        <div className="flex items-center gap-3 font-mono text-xs">
-          <span className="opacity-60">room</span>
-          <span className="px-2 py-1 border-2 border-ink rounded-md font-bold tracking-[0.3em] bg-mustard">{room.code}</span>
+        <div className="flex items-center gap-3">
+          <HowToPlayButton />
+          {room.mode !== "solo" && (
+            <div className="flex items-center gap-2 font-mono text-xs">
+              <span className="opacity-60 hidden sm:inline">room</span>
+              <span className="px-2 py-1 border-2 border-ink rounded-md font-bold tracking-[0.3em] bg-mustard">{room.code}</span>
+            </div>
+          )}
         </div>
       </header>
       <div className="px-6 sm:px-10 py-8">{view}</div>

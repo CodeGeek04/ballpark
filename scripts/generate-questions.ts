@@ -46,7 +46,37 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_
   process.exit(1);
 }
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  timeout: 180000, // tool_use with ~25 q/batch needs more headroom than plain text
+  maxRetries: 0, // we drive retries ourselves with backoff
+});
+
+const QUESTION_TOOL: Anthropic.Tool = {
+  name: "submit_questions",
+  description: "Submit the batch of generated Ballpark questions.",
+  input_schema: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            prompt: { type: "string" },
+            answer: { type: "number" },
+            unit: { type: "string" },
+            category: { type: "string" },
+            source_url: { type: ["string", "null"] },
+            cot_hint: { type: "string" },
+          },
+          required: ["prompt", "answer", "unit", "category", "cot_hint"],
+        },
+      },
+    },
+    required: ["questions"],
+  },
+};
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -110,7 +140,9 @@ Return ONLY a JSON object with this exact shape (no prose, no markdown, no backt
 }
 
 RULES:
-- Answer must be a positive number, never 0 or negative.
+- The prompt must be plain English: only letters, digits, spaces, and standard ASCII punctuation (.,'"-!?():&%$/). NO emojis, NO unicode arrows, NO em-dashes, NO smart quotes, NO special characters of any kind.
+- The unit must also be plain ASCII text — e.g. "liters", "kilograms", "people", "pizzas".
+- Answer must be a positive number, never 0 or negative, never a string, never NaN. Do not include units, commas, or words in the answer field.
 - For estimates, prefer round-ish numbers in the right order of magnitude over false precision.
 - Vary the magnitude wildly — some answers should be in the hundreds, some in the trillions.
 - Reference specific named entities (Taylor Swift, Times Square, MrBeast, Starbucks, the MTA) liberally. Generic questions are weaker.
@@ -165,57 +197,60 @@ Treat the seeds as 50% inspiration and 50% jumping-off-points — for the other 
       max_tokens: 8000,
       temperature: 1.0,
       system: SYSTEM_PROMPT,
+      tools: [QUESTION_TOOL],
+      tool_choice: { type: "tool", name: "submit_questions" },
       messages: [{ role: "user", content: userMessage }],
     });
   } catch (err: any) {
-    // Backoff on rate limit / overloaded / 5xx
+    // Backoff on rate limit / overloaded / 5xx / timeouts
     const status = err?.status ?? err?.response?.status;
-    const transient = status === 429 || (status >= 500 && status < 600) || err?.name === "APIConnectionError";
+    const isTimeout = err?.name === "APIConnectionTimeoutError" || /timeout/i.test(String(err?.message));
+    const transient = status === 429 || (status >= 500 && status < 600) || err?.name === "APIConnectionError" || isTimeout;
     if (transient && attempt < 6) {
       const delayMs = Math.min(30000, 1000 * 2 ** attempt) + Math.floor(Math.random() * 1000);
-      console.log(`  retry in ${delayMs}ms (status=${status}, attempt=${attempt + 1})`);
+      console.log(`  retry in ${delayMs}ms (status=${status ?? err?.name ?? "?"}, attempt=${attempt + 1})`);
       await new Promise((r) => setTimeout(r, delayMs));
       return callAnthropic(topicHints, targetCount, attempt + 1);
     }
     throw err;
   }
 
-  const block = res.content.find((b) => b.type === "text");
-  if (!block || block.type !== "text") throw new Error("no text block in response");
-  const text = block.text.trim();
-
-  // Be forgiving of stray markdown fences
-  const jsonText = text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  let parsed: { questions: GenRow[] };
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch (err) {
-    console.error("Failed to parse JSON. First 500 chars of response:\n", text.slice(0, 500));
-    throw err;
+  const toolBlock = res.content.find((b) => b.type === "tool_use");
+  if (!toolBlock || toolBlock.type !== "tool_use") {
+    throw new Error("no tool_use block in response");
   }
-  if (!parsed.questions || !Array.isArray(parsed.questions)) {
-    throw new Error("response missing .questions array");
+  const input = toolBlock.input as { questions?: GenRow[] };
+  if (!input.questions || !Array.isArray(input.questions)) {
+    throw new Error("tool_use missing .questions array");
   }
-  console.log(
-    `  tokens — input: ${res.usage.input_tokens}, output: ${res.usage.output_tokens}, cached: ${res.usage.cache_read_input_tokens ?? 0}`,
-  );
-  return parsed.questions;
+  return input.questions;
 }
 
+// Acceptable characters in a player-facing prompt: letters, digits, spaces,
+// and standard ASCII punctuation. Everything else (emojis, JSON artifacts,
+// control characters, unicode arrows, em-dashes) is a reject signal.
+const PROMPT_ALLOWED = /^[A-Za-z0-9 \-.,'"!?():&%$/]+$/;
+const UNIT_ALLOWED = /^[A-Za-z0-9 \-./]+$/;
+
 function validate(row: GenRow): { ok: true } | { ok: false; reason: string } {
-  if (typeof row.prompt !== "string" || row.prompt.length < 40 || row.prompt.length > 200) {
-    return { ok: false, reason: "prompt length" };
-  }
-  if (!row.prompt.trim().endsWith("?")) return { ok: false, reason: "missing question mark" };
+  if (typeof row.prompt !== "string") return { ok: false, reason: "prompt not string" };
+  const prompt = row.prompt.trim();
+  if (prompt.length < 40 || prompt.length > 200) return { ok: false, reason: "prompt length" };
+  if (!prompt.endsWith("?")) return { ok: false, reason: "missing question mark" };
+  if (!PROMPT_ALLOWED.test(prompt)) return { ok: false, reason: "prompt has non-ascii or special chars" };
+
   if (typeof row.answer !== "number" || !isFinite(row.answer) || row.answer <= 0) {
-    return { ok: false, reason: "answer not positive" };
+    return { ok: false, reason: "answer not positive number" };
   }
+  // Reject answers that came in as strings or that include thousands separators —
+  // the JSON schema forces number type, but belt-and-suspenders against future regressions.
+  if (Number.isNaN(row.answer) || !Number.isFinite(row.answer)) {
+    return { ok: false, reason: "answer not finite" };
+  }
+
   if (typeof row.unit !== "string" || !row.unit.trim()) return { ok: false, reason: "missing unit" };
+  if (!UNIT_ALLOWED.test(row.unit.trim())) return { ok: false, reason: "unit has special chars" };
+
   if (!categories.includes(row.category)) return { ok: false, reason: `bad category "${row.category}"` };
   if (typeof row.cot_hint !== "string" || row.cot_hint.length < 30) return { ok: false, reason: "cot_hint too short" };
   return { ok: true };
@@ -300,7 +335,7 @@ async function main() {
   const t0 = Date.now();
   console.log(`Generating ~${COUNT} questions at concurrency ${CONCURRENCY}…`);
 
-  const BATCH = 50;
+  const BATCH = 25;
   const totalBatches = Math.ceil(COUNT / BATCH);
   const queue: { idx: number; target: number }[] = [];
   for (let i = 0; i < totalBatches; i++) {

@@ -1,17 +1,13 @@
 import { LandingForm } from "./_components/LandingForm";
 import { Logo } from "@/components/Logo";
+import { HowToPlayButton } from "@/components/HowToPlay";
 
 export default function Home() {
   return (
     <main className="min-h-dvh w-full">
       <header className="px-6 sm:px-10 pt-8 pb-2 flex justify-between items-center">
         <Logo />
-        <a
-          href="https://github.com"
-          className="hidden sm:inline-flex font-mono text-xs tracking-tight underline underline-offset-4 decoration-2 decoration-ink hover:text-ember"
-        >
-          how to play
-        </a>
+        <HowToPlayButton />
       </header>
 
       <section className="px-6 sm:px-10 pt-10 sm:pt-16 pb-20 max-w-5xl mx-auto">
