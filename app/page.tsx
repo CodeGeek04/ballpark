@@ -1,12 +1,17 @@
+import { Suspense } from "react";
 import { LandingForm } from "./_components/LandingForm";
 import { Logo } from "@/components/Logo";
 import { HowToPlayButton } from "@/components/HowToPlay";
 import { SuggestQuestionButton } from "@/components/SuggestQuestion";
 import { FeedbackBar } from "@/components/FeedbackBar";
+import { AbandonedToast } from "@/components/AbandonedToast";
 
 export default function Home() {
   return (
     <main className="min-h-dvh w-full">
+      <Suspense fallback={null}>
+        <AbandonedToast />
+      </Suspense>
       <header className="px-6 sm:px-10 pt-8 pb-2 flex justify-between items-center gap-3">
         <Logo />
         <div className="flex items-center gap-2">

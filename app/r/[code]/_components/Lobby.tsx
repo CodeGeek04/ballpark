@@ -7,7 +7,7 @@ import { PaperCard } from "@/components/PaperCard";
 import { StampButton } from "@/components/StampButton";
 import { ChipStamp } from "@/components/ChipStamp";
 
-export function Lobby({ room, players, me }: { room: Room; players: Player[]; me: Player }) {
+export function Lobby({ room, players, me, notifySync }: { room: Room; players: Player[]; me: Player; notifySync?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shareUrl, setShareUrl] = useState("");
@@ -26,7 +26,9 @@ export function Lobby({ room, players, me }: { room: Room; players: Player[]; me
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data.error ?? "kick failed");
+      return;
     }
+    notifySync?.();
   }
   const canKick = me.is_host;
 
@@ -42,7 +44,9 @@ export function Lobby({ room, players, me }: { room: Room; players: Player[]; me
     if (!res.ok) {
       setError(data.error ?? "couldn't start");
       setBusy(false);
+      return;
     }
+    notifySync?.();
   }
 
   function copy() {

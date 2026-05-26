@@ -16,6 +16,7 @@ export function Round({
   me,
   players,
   submissions,
+  notifySync,
 }: {
   room: Room;
   round: RoundT;
@@ -23,6 +24,7 @@ export function Round({
   me: Player;
   players: Player[];
   submissions: Submission[];
+  notifySync?: () => void;
 }) {
   const deadline = useMemo(() => new Date(round.deadline_at).getTime(), [round.deadline_at]);
   const [now, setNow] = useState(Date.now());
@@ -79,9 +81,11 @@ export function Round({
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ roundId: round.id }),
-    }).catch(() => {
-      triggeredRevealRef.current = false;
-    });
+    })
+      .then(() => notifySync?.())
+      .catch(() => {
+        triggeredRevealRef.current = false;
+      });
   }
 
   // Timer-expiry trigger: any client fires once the deadline passes.
@@ -140,7 +144,9 @@ export function Round({
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? "submit failed");
         setSubmitted(false);
+        return;
       }
+      notifySync?.();
     } catch (e) {
       setError("network error");
       setSubmitted(false);

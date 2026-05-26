@@ -11,11 +11,13 @@ export function Ended({
   players,
   scores,
   me,
+  notifySync,
 }: {
   room: Room;
   players: Player[];
   scores: Record<string, number>;
   me: Player;
+  notifySync?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function Ended({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "restart failed");
+      notifySync?.();
       // Realtime UPDATE on rooms.status='lobby' takes over from here.
     } catch (e) {
       setError((e as Error).message);

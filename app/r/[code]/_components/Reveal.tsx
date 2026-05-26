@@ -20,6 +20,7 @@ export function Reveal({
   submissions,
   scores,
   me,
+  notifySync,
 }: {
   room: Room;
   round: Round;
@@ -30,6 +31,7 @@ export function Reveal({
   submissions: Submission[];
   scores: Record<string, number>;
   me: Player;
+  notifySync?: () => void;
 }) {
   const all = submissions.map((s) => Number(s.guess)).concat([answer]);
   const { min, max } = bounds(all);
@@ -51,6 +53,7 @@ export function Reveal({
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ roomId: room.id, playerId: me.id }),
     });
+    notifySync?.();
     setBusy(false);
   }
 

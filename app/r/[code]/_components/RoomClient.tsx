@@ -57,6 +57,11 @@ export function RoomClient({
   roundRef.current = round;
   const meRef = useRef<Player | null>(me);
   meRef.current = me;
+  const channelRef = useRef<ReturnType<typeof sb.channel> | null>(null);
+
+  const notifySync = () => {
+    channelRef.current?.send({ type: "broadcast", event: "ballpark_sync", payload: {} });
+  };
 
   useEffect(() => {
     const raw = sessionStorage.getItem(`ballpark.player.${room.code}`);
@@ -221,14 +226,21 @@ export function RoomClient({
         if (!current || !s || s.round_id !== current.id) return;
         await refetchSubmissions(current.id);
       })
+      // Broadcast channel: any client can publish "state changed" here and
+      // others react in <100ms. Far more reliable than postgres_changes for
+      // hot user actions (start game, reveal, restart).
+      .on("broadcast", { event: "ballpark_sync" }, () => {
+        resync().catch(() => {});
+      })
       .subscribe();
+    channelRef.current = channel;
 
     // Backstop polling. Realtime postgres_changes can drop events if the tab
     // is idle/backgrounded or the websocket reconnects briefly. Re-sync every
     // 10s + immediately whenever the tab regains visibility.
     const interval = setInterval(() => {
       resync().catch(() => {});
-    }, 10000);
+    }, 2000);
     function onVisible() {
       if (document.visibilityState === "visible") resync().catch(() => {});
     }
@@ -253,6 +265,7 @@ export function RoomClient({
 
     return () => {
       sb.removeChannel(channel);
+      channelRef.current = null;
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
@@ -336,7 +349,7 @@ export function RoomClient({
 
   let view: React.ReactNode = null;
   if (gameOver) {
-    view = <Ended room={room} players={players} scores={scores} me={me} />;
+    view = <Ended room={room} players={players} scores={scores} me={me} notifySync={notifySync} />;
   } else if (revealed && round && question && revealAnswer !== null) {
     view = (
       <Reveal
@@ -349,12 +362,13 @@ export function RoomClient({
         submissions={submissions}
         scores={scores}
         me={me}
+        notifySync={notifySync}
       />
     );
   } else if (round && question && !revealed) {
-    view = <RoundView room={room} round={round} question={question} me={me} players={players} submissions={submissions} />;
+    view = <RoundView room={room} round={round} question={question} me={me} players={players} submissions={submissions} notifySync={notifySync} />;
   } else if (room.status === "lobby" && !round) {
-    view = <Lobby room={room} players={players} me={me} />;
+    view = <Lobby room={room} players={players} me={me} notifySync={notifySync} />;
   }
   // Otherwise: in-between async state. Render nothing (no flash).
 
