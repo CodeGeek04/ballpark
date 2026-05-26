@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getSupabase } from "@/lib/supabase-browser";
 import type { Player, Room, Round, Submission } from "@/lib/types";
 import { Lobby } from "./Lobby";
@@ -51,8 +52,11 @@ export function RoomClient({
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [mounted, setMounted] = useState(false);
   const sb = useMemo(() => getSupabase(), []);
+  const router = useRouter();
   const roundRef = useRef<Round | null>(round);
   roundRef.current = round;
+  const meRef = useRef<Player | null>(me);
+  meRef.current = me;
 
   useEffect(() => {
     const raw = sessionStorage.getItem(`ballpark.player.${room.code}`);
@@ -146,6 +150,14 @@ export function RoomClient({
     const channel = sb
       .channel(`room:${room.code}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, (payload) => {
+        // Host left the game — the room was deleted. Everyone else lands home.
+        if (payload.eventType === "DELETE") {
+          if (meRef.current && !meRef.current.is_host) {
+            try { sessionStorage.removeItem(`ballpark.player.${room.code}`); } catch {}
+            router.replace("/?abandoned=1");
+          }
+          return;
+        }
         if (payload.new) {
           const next = payload.new as Room;
           setRoom(next);
@@ -223,11 +235,28 @@ export function RoomClient({
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
 
+    // Beacon-fire on tab close: if the host leaves, nuke the room so other
+    // players are sent home. Non-hosts just remove themselves. We use
+    // sendBeacon which browsers actually deliver during unload (unlike fetch).
+    function onLeave() {
+      const m = meRef.current;
+      if (!m) return;
+      const payload = JSON.stringify({ roomId: room.id, playerId: m.id });
+      try {
+        navigator.sendBeacon("/api/leave-room", new Blob([payload], { type: "application/json" }));
+      } catch {
+        // best-effort fallback
+        fetch("/api/leave-room", { method: "POST", body: payload, keepalive: true }).catch(() => {});
+      }
+    }
+    window.addEventListener("pagehide", onLeave);
+
     return () => {
       sb.removeChannel(channel);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("pagehide", onLeave);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.id, room.code]);
