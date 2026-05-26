@@ -7,6 +7,7 @@ import { Lobby } from "./Lobby";
 import { Round as RoundView } from "./Round";
 import { Reveal } from "./Reveal";
 import { Ended } from "./Ended";
+import { InlineJoin } from "./InlineJoin";
 import { Logo } from "@/components/Logo";
 import { HowToPlayButton } from "@/components/HowToPlay";
 
@@ -137,11 +138,27 @@ export function RoomClient({
   }, [room.id, room.code]);
 
   if (!me) {
+    // Visitor with no session — could be a shared link click. If the room is
+    // still in lobby, let them join right here. Otherwise the game has already
+    // started or ended; we can't slot them in mid-game.
+    if (room.status === "lobby") {
+      return (
+        <main className="min-h-dvh w-full">
+          <header className="px-6 sm:px-10 pt-6 flex justify-between items-center">
+            <Logo size={32} />
+            <HowToPlayButton />
+          </header>
+          <div className="px-6 sm:px-10 py-10">
+            <InlineJoin room={room} onJoined={setMe} />
+          </div>
+        </main>
+      );
+    }
     return (
       <main className="min-h-dvh flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center space-y-4">
           <Logo />
-          <p className="text-lg">This browser isn{`'`}t in this room. Head back home to join.</p>
+          <p className="text-lg">This game is already in progress. Ask the host to start a new room.</p>
           <a href="/" className="inline-block underline font-mono">← back to start</a>
         </div>
       </main>
