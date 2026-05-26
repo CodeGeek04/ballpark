@@ -16,25 +16,25 @@ export async function POST(req: Request) {
   if (room.status === "ended") return NextResponse.json({ error: "game already ended" }, { status: 409 });
   if (room.current_round >= room.round_count) return NextResponse.json({ error: "no more rounds" }, { status: 409 });
 
-  const { data: used } = await sb
-    .from("rounds")
-    .select("question_id")
-    .eq("room_id", roomId);
-  const usedIds = (used ?? []).map((r) => r.question_id);
-
-  let query = sb.from("questions").select("*").limit(1);
-  if (usedIds.length) query = query.not("id", "in", `(${usedIds.join(",")})`);
-  const { data: pickList } = await query.order("created_at", { ascending: false });
-  // Simple shuffle: pull a small window and pick randomly.
-  const { data: window } = await sb
-    .from("questions")
-    .select("*")
-    .limit(50);
-  const eligible = (window ?? []).filter((q) => !usedIds.includes(q.id));
-  const question = eligible.length
-    ? eligible[Math.floor(Math.random() * eligible.length)]
-    : pickList?.[0];
-  if (!question) return NextResponse.json({ error: "no questions available" }, { status: 500 });
+  // True random pick from the whole pool, excluding questions already used
+  // in this room. We use the ballpark_pick_question RPC so the heavy lifting
+  // (random ordering + not-in filter) happens in one Postgres round-trip.
+  type QuestionRow = {
+    id: string;
+    prompt: string;
+    answer: number;
+    unit: string | null;
+    category: string | null;
+    source_url: string | null;
+    k: number;
+    cot_hint: string | null;
+  };
+  const { data: question, error: pickErr } = (await sb
+    .rpc("ballpark_pick_question", { p_room_id: roomId })
+    .single()) as { data: QuestionRow | null; error: { message: string } | null };
+  if (pickErr || !question) {
+    return NextResponse.json({ error: "no questions available" }, { status: 500 });
+  }
 
   const nextIndex = room.current_round + 1;
   const deadline = new Date(Date.now() + room.round_seconds * 1000).toISOString();
