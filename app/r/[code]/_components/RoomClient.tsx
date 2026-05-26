@@ -47,6 +47,7 @@ export function RoomClient({
   const [revealAnswer, setRevealAnswer] = useState<number | null>(initialAnswer);
   const [revealCategory, setRevealCategory] = useState<string | null>(initialCategory);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
+  const [mounted, setMounted] = useState(false);
   const sb = useMemo(() => getSupabase(), []);
   const roundRef = useRef<Round | null>(round);
   roundRef.current = round;
@@ -54,6 +55,7 @@ export function RoomClient({
   useEffect(() => {
     const raw = sessionStorage.getItem(`ballpark.player.${room.code}`);
     if (raw) setMe(JSON.parse(raw) as Player);
+    setMounted(true);
   }, [room.code]);
 
   async function refetchSubmissions(roundId: string) {
@@ -138,6 +140,11 @@ export function RoomClient({
   }, [room.id, room.code]);
 
   if (!me) {
+    // Before the sessionStorage read completes we don't know if this browser
+    // already has a player on file. Render nothing for that single frame
+    // instead of briefly showing the join form to someone who just created
+    // the room on the previous page.
+    if (!mounted) return null;
     // Visitor with no session — could be a shared link click. If the room is
     // still in lobby, let them join right here. Otherwise the game has already
     // started or ended; we can't slot them in mid-game.
