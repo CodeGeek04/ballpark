@@ -10,6 +10,7 @@ import { Ended } from "./Ended";
 import { InlineJoin } from "./InlineJoin";
 import { Logo } from "@/components/Logo";
 import { HowToPlayButton } from "@/components/HowToPlay";
+import { ChipStamp } from "@/components/ChipStamp";
 
 type PublicQuestion = {
   id: string;
@@ -145,10 +146,12 @@ export function RoomClient({
     // instead of briefly showing the join form to someone who just created
     // the room on the previous page.
     if (!mounted) return null;
-    // Visitor with no session — could be a shared link click. If the room is
-    // still in lobby, let them join right here. Otherwise the game has already
-    // started or ended; we can't slot them in mid-game.
-    if (room.status === "lobby") {
+
+    const ROOM_CAPACITY = 6;
+    const isFull = players.length >= ROOM_CAPACITY;
+    const inProgress = room.status !== "lobby";
+
+    if (room.status === "lobby" && !isFull) {
       return (
         <main className="min-h-dvh w-full">
           <header className="px-6 sm:px-10 pt-6 flex justify-between items-center">
@@ -161,12 +164,25 @@ export function RoomClient({
         </main>
       );
     }
+
+    // Room is full OR game already running. Show a calm dead-end with options.
+    const reason = isFull && !inProgress ? "room is full" : "game already in progress";
+    const detail = isFull && !inProgress
+      ? `This room hit its 6-player limit. Start a new room and share the code.`
+      : `You can't slot into a game that's already started. Ask the host to start a new room when this one ends.`;
     return (
-      <main className="min-h-dvh flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center space-y-4">
-          <Logo />
-          <p className="text-lg">This game is already in progress. Ask the host to start a new room.</p>
-          <a href="/" className="inline-block underline font-mono">← back to start</a>
+      <main className="min-h-dvh w-full">
+        <header className="px-6 sm:px-10 pt-6 flex justify-between items-center">
+          <Logo size={32} />
+          <HowToPlayButton />
+        </header>
+        <div className="px-6 sm:px-10 py-10 max-w-md mx-auto">
+          <ChipStamp tone="ink">{reason}</ChipStamp>
+          <h1 className="font-display font-bold text-4xl tracking-tight mt-3">no spot for you</h1>
+          <p className="font-mono text-sm leading-snug mt-3 opacity-80">{detail}</p>
+          <div className="mt-6 flex gap-3">
+            <a href="/" className="inline-flex items-center gap-2 px-4 py-2 rounded-card border-2 border-ink bg-ember text-paper font-bold shadow-stamp-sm">start a new room →</a>
+          </div>
         </div>
       </main>
     );
