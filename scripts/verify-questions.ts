@@ -116,16 +116,24 @@ async function checkBatch(rows: Row[], attempt = 0): Promise<{ id: string; estim
 async function main() {
   const t0 = Date.now();
 
-  let query = sb.from("questions").select("id, prompt, unit, answer");
-  if (!ALL) query = query.eq("verify_status", "unverified");
-  if (LIMIT) query = query.limit(LIMIT);
-
-  const { data: rows, error } = await query;
-  if (error || !rows) {
-    console.error("Failed to fetch:", error);
-    process.exit(1);
+  // Supabase PostgREST caps single .select() at 1000 rows; paginate ourselves.
+  const PAGE = 1000;
+  const all: Row[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    let query = sb.from("questions").select("id, prompt, unit, answer");
+    if (!ALL) query = query.eq("verify_status", "unverified");
+    query = query.range(offset, offset + PAGE - 1);
+    const { data, error } = await query;
+    if (error) {
+      console.error("Failed to fetch:", error);
+      process.exit(1);
+    }
+    const rows = (data as Row[]) ?? [];
+    all.push(...rows);
+    if (rows.length < PAGE) break;
+    if (LIMIT && all.length >= LIMIT) break;
   }
-  const queue = (rows as Row[]).slice();
+  const queue = LIMIT ? all.slice(0, LIMIT) : all;
   const total = queue.length;
   console.log(`Verifying ${total} questions in batches of ${BATCH} at concurrency ${CONCURRENCY}…`);
   if (!total) return;
