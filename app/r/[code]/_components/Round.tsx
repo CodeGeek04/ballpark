@@ -112,23 +112,13 @@ export function Round({
       setError("enter a positive number");
       return;
     }
-    setBusy(true);
-    setError(null);
-    const res = await fetch("/api/submit-guess", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ roundId: round.id, playerId: me.id, guess: n }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "submit failed");
-      setBusy(false);
-      return;
-    }
+    // Optimistic UI: flip to locked the moment the user clicks. The user shouldn't
+    // wait for a cross-region round-trip to see their own action reflected.
     setSubmitted(true);
-    setBusy(false);
+    setError(null);
 
-    // Optimistically check "all submitted" without waiting for the realtime echo.
+    // Optimistically check "all submitted" so reveal can fire without waiting
+    // for the realtime echo of this submission.
     const justId = room.mode === "teams" ? myTeamCaptainId : me.id;
     const eligible =
       room.mode === "teams"
@@ -138,6 +128,23 @@ export function Round({
     let allIn = eligible.size > 0;
     for (const id of eligible) if (!known.has(id)) { allIn = false; break; }
     if (allIn) fireReveal();
+
+    // Fire-and-handle the API call. On error, revert the UI.
+    try {
+      const res = await fetch("/api/submit-guess", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ roundId: round.id, playerId: me.id, guess: n }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "submit failed");
+        setSubmitted(false);
+      }
+    } catch (e) {
+      setError("network error");
+      setSubmitted(false);
+    }
   }
 
   const submittedIds = new Set(submissions.map((s) => s.player_id));

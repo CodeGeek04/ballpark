@@ -43,15 +43,8 @@ export function LandingForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "failed");
       sessionStorage.setItem(`ballpark.player.${data.room.code}`, JSON.stringify(data.player));
-      // Solo: skip the lobby — kick off round 1 before navigating so the player
-      // lands directly on a question.
-      if (mode === "solo") {
-        await fetch("/api/start-round", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ roomId: data.room.id, playerId: data.player.id }),
-        });
-      }
+      // For solo, the server already started round 1 inside the same RPC,
+      // so no second round-trip is needed before navigating.
       router.push(`/r/${data.room.code}`);
     } catch (e) {
       setError((e as Error).message);

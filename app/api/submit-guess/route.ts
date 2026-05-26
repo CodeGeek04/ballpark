@@ -13,13 +13,17 @@ export async function POST(req: Request) {
   if (guess <= 0) return NextResponse.json({ error: "guess must be positive" }, { status: 400 });
 
   const sb = getServiceClient();
-  const { data: round } = await sb.from("rounds").select("*").eq("id", roundId).maybeSingle();
+
+  // Parallel: read deadline + player team in one round-trip total instead of two.
+  const [{ data: round }, { data: player }] = await Promise.all([
+    sb.from("rounds").select("deadline_at").eq("id", roundId).maybeSingle(),
+    sb.from("players").select("team").eq("id", playerId).maybeSingle(),
+  ]);
+
   if (!round) return NextResponse.json({ error: "round not found" }, { status: 404 });
   if (new Date(round.deadline_at).getTime() <= Date.now()) {
     return NextResponse.json({ error: "deadline passed" }, { status: 409 });
   }
-
-  const { data: player } = await sb.from("players").select("*").eq("id", playerId).maybeSingle();
   if (!player) return NextResponse.json({ error: "player not found" }, { status: 404 });
 
   const { error } = await sb
