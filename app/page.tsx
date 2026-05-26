@@ -2,6 +2,7 @@ import { LandingForm } from "./_components/LandingForm";
 import { Logo } from "@/components/Logo";
 import { HowToPlayButton } from "@/components/HowToPlay";
 import { SuggestQuestionButton } from "@/components/SuggestQuestion";
+import { FeedbackBar } from "@/components/FeedbackBar";
 
 export default function Home() {
   return (
@@ -43,6 +44,8 @@ export default function Home() {
           <LandingForm />
         </div>
       </section>
+
+      <FeedbackBar />
 
       <footer className="px-6 sm:px-10 pb-10 text-xs font-mono opacity-60">
         made with too much coffee · {new Date().getFullYear()}
