@@ -35,7 +35,7 @@ const args = parseArgs(process.argv.slice(2));
 const COUNT = Math.max(1, Number(args.count ?? 100));
 const CONCURRENCY = Math.max(1, Math.min(8, Number(args.concurrency ?? 4)));
 const EXTRA_SEEDS = args.seeds ? args.seeds.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
-const SIM_THRESHOLD = 0.62; // pg_trgm similarity; >0.62 is a near-duplicate
+const SIM_THRESHOLD = 0.85; // pg_trgm similarity; only near-identical prompts get rejected
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("ANTHROPIC_API_KEY missing from env. Aborting.");

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:push": "supabase db push",
     "functions:deploy": "supabase functions deploy",
-    "questions:gen": "tsx scripts/generate-questions.ts"
+    "questions:gen": "tsx scripts/generate-questions.ts",
+    "questions:verify": "tsx scripts/verify-questions.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
