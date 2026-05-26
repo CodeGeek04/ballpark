@@ -10,6 +10,7 @@ import { Ended } from "./Ended";
 import { InlineJoin } from "./InlineJoin";
 import { Logo } from "@/components/Logo";
 import { HowToPlayButton } from "@/components/HowToPlay";
+import { SuggestQuestionButton } from "@/components/SuggestQuestion";
 import { ChipStamp } from "@/components/ChipStamp";
 
 type PublicQuestion = {
@@ -254,7 +255,8 @@ export function RoomClient({
     <main className="min-h-dvh w-full">
       <header className="px-6 sm:px-10 pt-6 flex justify-between items-center gap-3">
         <Logo size={32} />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <SuggestQuestionButton roomCode={room.code} />
           <HowToPlayButton />
           {room.mode !== "solo" && (
             <div className="flex items-center gap-2 font-mono text-xs">

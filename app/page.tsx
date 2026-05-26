@@ -1,13 +1,17 @@
 import { LandingForm } from "./_components/LandingForm";
 import { Logo } from "@/components/Logo";
 import { HowToPlayButton } from "@/components/HowToPlay";
+import { SuggestQuestionButton } from "@/components/SuggestQuestion";
 
 export default function Home() {
   return (
     <main className="min-h-dvh w-full">
-      <header className="px-6 sm:px-10 pt-8 pb-2 flex justify-between items-center">
+      <header className="px-6 sm:px-10 pt-8 pb-2 flex justify-between items-center gap-3">
         <Logo />
-        <HowToPlayButton />
+        <div className="flex items-center gap-2">
+          <SuggestQuestionButton />
+          <HowToPlayButton />
+        </div>
       </header>
 
       <section className="px-6 sm:px-10 pt-10 sm:pt-16 pb-20 max-w-5xl mx-auto">
