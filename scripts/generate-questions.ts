@@ -32,7 +32,8 @@ const { categories, seeds } = JSON.parse(readFileSync(seedsPath, "utf-8")) as {
 };
 
 const args = parseArgs(process.argv.slice(2));
-const COUNT = Math.max(1, Math.min(200, Number(args.count ?? 100)));
+const COUNT = Math.max(1, Number(args.count ?? 100));
+const CONCURRENCY = Math.max(1, Math.min(8, Number(args.concurrency ?? 4)));
 const EXTRA_SEEDS = args.seeds ? args.seeds.split(",").map((s: string) => s.trim()).filter(Boolean) : [];
 const SIM_THRESHOLD = 0.62; // pg_trgm similarity; >0.62 is a near-duplicate
 
@@ -64,6 +65,22 @@ GOOD examples (these are the tone target):
 - "How many kilograms of trash do New York City households produce in a single hour?"
 - "How many AirPods are lost to the laundry in the US every year?"
 - "How many text messages saying 'I love you' are sent globally per day?"
+- "How many pizzas does Tim Hortons sell on its busiest day of the year?"
+- "How many kilowatt-hours does an average US household consume in a week?"
+- "How many parking tickets does NYC issue on the snowiest day of winter?"
+
+FAVOR THESE TWO PATTERNS HEAVILY:
+
+Pattern A — Brand + peak/occasion. A specific brand or institution combined with a
+specific peak moment ("busiest day of the year", "Black Friday", "Super Bowl Sunday",
+"the day Beyoncé dropped Lemonade"). Examples: "Krispy Kreme donuts sold on National
+Donut Day", "Domino's pizzas delivered during Super Bowl halftime", "Starbucks orders
+on the first day of pumpkin spice latte season".
+
+Pattern B — Per-unit consumption / behavior. "Average X uses Y of Z per W". Examples:
+"liters of water used per shower by the average American", "kWh consumed by an average
+US household per week", "subway swipes by the average New Yorker per month", "calories
+burned by an average dog walker per day".
 
 BAD examples (avoid this register):
 - "How many people live in China?" (boring, googlable)
@@ -132,22 +149,36 @@ type GenRow = {
   cot_hint: string;
 };
 
-async function callAnthropic(topicHints: string[], targetCount: number): Promise<GenRow[]> {
+async function callAnthropic(topicHints: string[], targetCount: number, attempt = 0): Promise<GenRow[]> {
   const userMessage = `Generate ${targetCount} Ballpark questions.
 
 Use these topic hints as inspiration (you can riff, combine, or substitute close cousins — don't be too literal). Include at least one named person, brand, or location in roughly half the questions:
 
 ${topicHints.map((s, i) => `${i + 1}. ${s}`).join("\n")}
 
-Also include ~10% wildcards on topics not in this list. Return the JSON object now, no other prose.`;
+Treat the seeds as 50% inspiration and 50% jumping-off-points — for the other half of the batch, invent fresh weird questions on topics not in this list (different brands, different occasions, different people, different per-unit consumption stats). Maximize variety across the batch. Return the JSON object now, no other prose.`;
 
-  const res = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8000,
-    temperature: 1.0,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-  });
+  let res;
+  try {
+    res = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8000,
+      temperature: 1.0,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+    });
+  } catch (err: any) {
+    // Backoff on rate limit / overloaded / 5xx
+    const status = err?.status ?? err?.response?.status;
+    const transient = status === 429 || (status >= 500 && status < 600) || err?.name === "APIConnectionError";
+    if (transient && attempt < 6) {
+      const delayMs = Math.min(30000, 1000 * 2 ** attempt) + Math.floor(Math.random() * 1000);
+      console.log(`  retry in ${delayMs}ms (status=${status}, attempt=${attempt + 1})`);
+      await new Promise((r) => setTimeout(r, delayMs));
+      return callAnthropic(topicHints, targetCount, attempt + 1);
+    }
+    throw err;
+  }
 
   const block = res.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") throw new Error("no text block in response");
@@ -221,40 +252,13 @@ async function ensureSimilarityFn() {
   void sql;
 }
 
-async function main() {
-  console.log(`Generating ${COUNT} questions…`);
-  await ensureSimilarityFn();
-
-  // Pull topic hints biased toward the user-specified seeds, padded from the JSON file.
-  const seedPool = [...EXTRA_SEEDS, ...sample(seeds, Math.max(50, COUNT))];
-  const uniqHints = Array.from(new Set(seedPool)).slice(0, Math.max(50, COUNT));
-
-  // One Claude call per batch of <=60 to stay within max_tokens and quality.
-  const BATCH = 50;
-  const batches: string[][] = [];
-  for (let i = 0; i < COUNT; i += BATCH) {
-    const slice = uniqHints.slice(i, i + BATCH);
-    if (slice.length < BATCH && batches.length === 0) batches.push(uniqHints.slice(0, Math.min(BATCH, COUNT)));
-    else batches.push(slice);
-    if (batches.length * BATCH >= COUNT) break;
-  }
-
-  const all: GenRow[] = [];
-  for (let b = 0; b < batches.length; b++) {
-    const target = Math.min(BATCH, COUNT - all.length);
-    if (target <= 0) break;
-    console.log(`\nBatch ${b + 1}/${batches.length} — asking for ${target} questions…`);
-    const rows = await callAnthropic(batches[b], target);
-    console.log(`  received ${rows.length} rows from model`);
-    all.push(...rows);
-  }
-
+async function processBatchResults(rows: GenRow[]) {
   let kept = 0;
   let rejected = 0;
   const reasons: Record<string, number> = {};
   const rowsForInsert: any[] = [];
 
-  for (const r of all) {
+  for (const r of rows) {
     const v = validate(r);
     if (!v.ok) {
       rejected++;
@@ -281,17 +285,67 @@ async function main() {
   }
 
   if (rowsForInsert.length) {
-    const { error } = await sb.from("questions_review").insert(rowsForInsert);
-    if (error) {
-      console.error("Insert failed:", error);
-      process.exit(1);
+    // Chunk inserts to stay under PostgREST payload size.
+    const CHUNK = 200;
+    for (let i = 0; i < rowsForInsert.length; i += CHUNK) {
+      const slice = rowsForInsert.slice(i, i + CHUNK);
+      const { error } = await sb.from("questions_review").insert(slice);
+      if (error) console.error("  insert chunk error:", error.message);
+    }
+  }
+  return { kept, rejected, reasons };
+}
+
+async function main() {
+  const t0 = Date.now();
+  console.log(`Generating ~${COUNT} questions at concurrency ${CONCURRENCY}…`);
+
+  const BATCH = 50;
+  const totalBatches = Math.ceil(COUNT / BATCH);
+  const queue: { idx: number; target: number }[] = [];
+  for (let i = 0; i < totalBatches; i++) {
+    const target = Math.min(BATCH, COUNT - i * BATCH);
+    queue.push({ idx: i, target });
+  }
+
+  let done = 0;
+  let totalKept = 0;
+  let totalRejected = 0;
+  const totalReasons: Record<string, number> = {};
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  async function worker() {
+    while (queue.length) {
+      const job = queue.shift();
+      if (!job) break;
+      // Each batch gets a freshly-sampled set of seed hints — drives variety.
+      const hints = Array.from(new Set([...sample(EXTRA_SEEDS, Math.min(5, EXTRA_SEEDS.length)), ...sample(seeds, BATCH)])).slice(0, BATCH);
+      try {
+        const rows = await callAnthropic(hints, job.target);
+        const { kept, rejected, reasons } = await processBatchResults(rows);
+        totalKept += kept;
+        totalRejected += rejected;
+        for (const [k, v] of Object.entries(reasons)) totalReasons[k] = (totalReasons[k] ?? 0) + v;
+        done++;
+        console.log(
+          `[${done.toString().padStart(3)}/${totalBatches}] batch ${job.idx + 1} — kept ${kept}, dropped ${rejected} · total kept ${totalKept}`,
+        );
+      } catch (err) {
+        done++;
+        console.error(`[${done}/${totalBatches}] batch ${job.idx + 1} FAILED:`, (err as Error).message);
+      }
     }
   }
 
-  console.log(`\nDone. inserted=${kept}, rejected=${rejected}`);
-  if (Object.keys(reasons).length) {
-    for (const [k, v] of Object.entries(reasons)) console.log(`  rejected — ${k}: ${v}`);
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+
+  const elapsedSec = ((Date.now() - t0) / 1000).toFixed(0);
+  console.log(`\nDone in ${elapsedSec}s. inserted=${totalKept}, dropped=${totalRejected}`);
+  if (Object.keys(totalReasons).length) {
+    for (const [k, v] of Object.entries(totalReasons)) console.log(`  dropped — ${k}: ${v}`);
   }
+  void inputTokens; void outputTokens;
 }
 
 main().catch((e) => {
