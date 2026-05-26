@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --paper: #fef7e8;
+  --ink: #1a1a1a;
+  --ember: #ff5b3a;
+  --mustard: #ffb84d;
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image: radial-gradient(rgba(26, 26, 26, 0.55) 0.5px, transparent 0.5px);
+    background-size: 6px 6px;
+    background-attachment: fixed;
+    background-blend-mode: multiply;
+  }
+
+  ::selection {
+    background: var(--ember);
+    color: var(--paper);
+  }
+
+  input,
+  button {
+    font-family: inherit;
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  .noise::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(#1a1a1a 0.5px, transparent 0.5px);
+    background-size: 6px 6px;
+    opacity: 0.08;
+  }
+}
