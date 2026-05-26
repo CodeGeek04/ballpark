@@ -79,6 +79,69 @@ export function RoomClient({
     setScores(totals);
   }
 
+  // Backstop sync: when the tab regains focus, or every 10 seconds, refetch
+  // the room + latest round + players. This rescues us from any realtime
+  // event the websocket missed (idle tabs, brief reconnects, mobile sleep).
+  async function resync() {
+    const [
+      { data: freshRoom },
+      { data: latestRound },
+      { data: ps },
+    ] = await Promise.all([
+      sb.from("rooms").select("*").eq("id", room.id).maybeSingle(),
+      sb.from("rounds").select("*").eq("room_id", room.id).order("index", { ascending: false }).limit(1).maybeSingle(),
+      sb.from("players").select("*").eq("room_id", room.id).order("joined_at"),
+    ]);
+    if (freshRoom) setRoom(freshRoom as Room);
+    if (ps) setPlayers(ps as Player[]);
+
+    if (latestRound) {
+      const r = latestRound as Round;
+      const haveRoundId = roundRef.current?.id;
+      const haveRevealedAt = roundRef.current?.revealed_at;
+      const changedRound = r.id !== haveRoundId;
+      const newlyRevealed = !!r.revealed_at && r.revealed_at !== haveRevealedAt;
+      if (changedRound) {
+        // Treat like a brand-new round arriving.
+        const { data: q } = await sb
+          .from("questions")
+          .select("id, prompt, unit, category, k, answer")
+          .eq("id", r.question_id)
+          .single();
+        if (q) {
+          const { answer, category, ...rest } = q as PublicQuestion & { answer: number; category: string | null };
+          setQuestion({ ...rest, category });
+          if (r.revealed_at) {
+            setRevealAnswer(Number(answer));
+            setRevealCategory(category);
+          } else {
+            setRevealAnswer(null);
+            setRevealCategory(null);
+          }
+        }
+        await refetchSubmissions(r.id);
+        setRound(r);
+        await refetchScores(room.id);
+      } else if (newlyRevealed) {
+        const { data: q } = await sb.from("questions").select("answer, category").eq("id", r.question_id).single();
+        if (q) {
+          setRevealAnswer(Number((q as { answer: number }).answer));
+          setRevealCategory((q as { category: string | null }).category);
+        }
+        await refetchSubmissions(r.id);
+        await refetchScores(room.id);
+        setRound(r);
+      }
+    } else if (roundRef.current) {
+      // Room was restarted; rounds wiped.
+      setRound(null);
+      setQuestion(null);
+      setSubmissions([]);
+      setRevealAnswer(null);
+      setRevealCategory(null);
+    }
+  }
+
   useEffect(() => {
     const channel = sb
       .channel(`room:${room.code}`)
@@ -148,8 +211,23 @@ export function RoomClient({
       })
       .subscribe();
 
+    // Backstop polling. Realtime postgres_changes can drop events if the tab
+    // is idle/backgrounded or the websocket reconnects briefly. Re-sync every
+    // 10s + immediately whenever the tab regains visibility.
+    const interval = setInterval(() => {
+      resync().catch(() => {});
+    }, 10000);
+    function onVisible() {
+      if (document.visibilityState === "visible") resync().catch(() => {});
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
     return () => {
       sb.removeChannel(channel);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.id, room.code]);

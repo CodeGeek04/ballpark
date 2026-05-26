@@ -17,13 +17,30 @@ export async function POST(req: Request) {
   }
 
   // Clean slate: wipe rounds (cascades to submissions) and reset the room.
-  // Players remain in place so anyone still on the page slides straight into
-  // the new lobby.
   await sb.from("rounds").delete().eq("room_id", roomId);
   await sb
     .from("rooms")
     .update({ status: "lobby", current_round: 0 })
     .eq("id", roomId);
+
+  // Solo: don't dump the player into a lobby with one person. Start round 1
+  // inline so the next click after "play again" is on the question itself.
+  if (room.mode === "solo") {
+    type QuestionRow = { id: string };
+    const { data: question } = (await sb
+      .rpc("ballpark_pick_question", { p_room_id: roomId })
+      .single()) as { data: QuestionRow | null };
+    if (question) {
+      const deadline = new Date(Date.now() + room.round_seconds * 1000).toISOString();
+      await sb.from("rounds").insert({
+        room_id: roomId,
+        index: 1,
+        question_id: question.id,
+        deadline_at: deadline,
+      });
+      await sb.from("rooms").update({ status: "playing", current_round: 1 }).eq("id", roomId);
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
