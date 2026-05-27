@@ -121,19 +121,10 @@ export function Round({
     setSubmitted(true);
     setError(null);
 
-    // Optimistically check "all submitted" so reveal can fire without waiting
-    // for the realtime echo of this submission.
-    const justId = room.mode === "teams" ? myTeamCaptainId : me.id;
-    const eligible =
-      room.mode === "teams"
-        ? new Set([captainsByTeam?.A, captainsByTeam?.B].filter((x): x is string => !!x))
-        : new Set(players.map((p) => p.id));
-    const known = new Set([...submissions.map((s) => s.player_id), justId].filter((x): x is string => !!x));
-    let allIn = eligible.size > 0;
-    for (const id of eligible) if (!known.has(id)) { allIn = false; break; }
-    if (allIn) fireReveal();
-
-    // Fire-and-handle the API call. On error, revert the UI.
+    // Submit FIRST. If we fire the all-submitted reveal before the API call,
+    // they race — and in solo (where you are always the last eligible
+    // submitter) the reveal wins, sets revealed_at, and submit-guess gets
+    // rejected with 409. Sequencing fixes it.
     try {
       const res = await fetch("/api/submit-guess", {
         method: "POST",
@@ -150,7 +141,19 @@ export function Round({
     } catch (e) {
       setError("network error");
       setSubmitted(false);
+      return;
     }
+
+    // Now that the submission is durable, check whether we're the last one in.
+    const justId = room.mode === "teams" ? myTeamCaptainId : me.id;
+    const eligible =
+      room.mode === "teams"
+        ? new Set([captainsByTeam?.A, captainsByTeam?.B].filter((x): x is string => !!x))
+        : new Set(players.map((p) => p.id));
+    const known = new Set([...submissions.map((s) => s.player_id), justId].filter((x): x is string => !!x));
+    let allIn = eligible.size > 0;
+    for (const id of eligible) if (!known.has(id)) { allIn = false; break; }
+    if (allIn) fireReveal();
   }
 
   const submittedIds = new Set(submissions.map((s) => s.player_id));
