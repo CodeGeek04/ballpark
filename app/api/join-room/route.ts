@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { trackIdentity } from "@/lib/track-identity";
 import { normalizeCode } from "@/lib/code";
 
 export const runtime = "nodejs";
@@ -10,6 +11,8 @@ export async function POST(req: Request) {
   const { code, name, avatar } = (await req.json()) as Body;
   const norm = normalizeCode(code ?? "");
   if (!norm || !name || !avatar) return NextResponse.json({ error: "missing fields" }, { status: 400 });
+
+  void trackIdentity(req, name);
 
   const sb = getServiceClient();
   const { data: room } = await sb.from("rooms").select("*").eq("code", norm).maybeSingle();

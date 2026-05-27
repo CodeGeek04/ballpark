@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { trackIdentity } from "@/lib/track-identity";
 import type { RoomMode } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -15,6 +16,9 @@ export async function POST(req: Request) {
   if (!mode || !hostName || !hostAvatar) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
+
+  // Fire-and-forget identity log.
+  void trackIdentity(req, hostName);
 
   const sb = getServiceClient();
 
