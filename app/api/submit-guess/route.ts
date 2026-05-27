@@ -14,13 +14,19 @@ export async function POST(req: Request) {
 
   const sb = getServiceClient();
 
-  // Parallel: read deadline + player team in one round-trip total instead of two.
+  // Parallel: read deadline + revealed_at + player team in one round-trip total.
   const [{ data: round }, { data: player }] = await Promise.all([
-    sb.from("rounds").select("deadline_at").eq("id", roundId).maybeSingle(),
+    sb.from("rounds").select("deadline_at, revealed_at").eq("id", roundId).maybeSingle(),
     sb.from("players").select("team").eq("id", playerId).maybeSingle(),
   ]);
 
   if (!round) return NextResponse.json({ error: "round not found" }, { status: 404 });
+  if (round.revealed_at) {
+    // Race: reveal already fired (likely because everyone else just submitted).
+    // Don't insert — the score loop has already run and this row would be a
+    // NULL-score orphan.
+    return NextResponse.json({ error: "round already revealed" }, { status: 409 });
+  }
   if (new Date(round.deadline_at).getTime() <= Date.now()) {
     return NextResponse.json({ error: "deadline passed" }, { status: 409 });
   }
