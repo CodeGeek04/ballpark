@@ -27,18 +27,32 @@ export function LandingForm() {
     }
   }, []);
 
+  async function postJson(url: string, body: unknown): Promise<any> {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data: any = null;
+    if (text) {
+      try { data = JSON.parse(text); } catch { /* fall through */ }
+    }
+    if (!res.ok) {
+      throw new Error(data?.error ?? `server error (${res.status}). is supabase configured?`);
+    }
+    if (!data) {
+      throw new Error("empty response from server. is supabase configured?");
+    }
+    return data;
+  }
+
   async function handlePlay() {
     setBusy(true);
     setError(null);
     try {
       saveIdentity({ name, avatar });
-      const res = await fetch("/api/create-room", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode, hostName: name, hostAvatar: avatar }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "failed");
+      const data = await postJson("/api/create-room", { mode, hostName: name, hostAvatar: avatar });
       sessionStorage.setItem(`toppl.player.${data.room.code}`, JSON.stringify(data.player));
       router.push(`/r/${data.room.code}`);
     } catch (e) {
@@ -53,13 +67,7 @@ export function LandingForm() {
     try {
       saveIdentity({ name, avatar });
       const norm = normalizeCode(code);
-      const res = await fetch("/api/join-room", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: norm, name, avatar }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "failed");
+      const data = await postJson("/api/join-room", { code: norm, name, avatar });
       sessionStorage.setItem(`toppl.player.${data.room.code}`, JSON.stringify(data.player));
       router.push(`/r/${data.room.code}`);
     } catch (e) {
