@@ -15,8 +15,8 @@ export default function Home() {
       </header>
 
       <section className="flex-1 flex items-center justify-center">
-        <div className="max-w-2xl text-center space-y-6">
-          <p className="font-mono text-[11px] uppercase tracking-[0.22em] opacity-70">coming soon</p>
+        <div className="max-w-2xl text-center space-y-8">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] opacity-70">streak mode · solo</p>
           <h2
             className="font-serif italic font-black text-[clamp(2.5rem,6vw,4.5rem)] leading-[0.95] tracking-[-0.02em]"
           >
@@ -24,10 +24,18 @@ export default function Home() {
             <span style={{ color: "var(--ember)" }}>Don{`'`}t miss.</span>
           </h2>
           <p className="font-sans text-base sm:text-lg leading-snug opacity-85 max-w-[58ch] mx-auto">
-            Two surprising quantities head to head. You pick which is bigger. Wrong picks knock you out. Longest streak wins.
-            Solo or up to 8 friends, no signup.
+            Two surprising quantities head to head. You pick which is bigger. Wrong picks knock you out.
+            Longest streak wins. No signup.
           </p>
-          <div className="pt-4 font-mono text-xs opacity-70 tracking-[0.12em] uppercase">in active development</div>
+          <div className="pt-2">
+            <a
+              href="/play"
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-md border-2 border-[var(--ink)] bg-[var(--ivory)] text-[var(--ink)] font-display font-black text-xl tracking-tight shadow-[8px_8px_0_var(--ink)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0_var(--ink)] transition-all"
+            >
+              play solo →
+            </a>
+          </div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-50">multiplayer coming soon</p>
         </div>
       </section>
 
