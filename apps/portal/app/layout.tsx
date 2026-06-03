@@ -8,8 +8,8 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["500", "700"], variab
 const serif = Fraunces({ subsets: ["latin"], weight: ["500", "700", "900"], style: ["italic"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_PORTAL_URL || "https://hunch.fun"),
-  title: "Hunch — four ways to guess",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_PORTAL_URL || "https://doozy.fun"),
+  title: "Doozy — four ways to guess",
   description: "A pack of guessing games. Ballpark, Toppl, Order It, Timeline. No signup, play with friends.",
 };
 

@@ -1,14 +1,13 @@
-# Hunch
+# Doozy
 
 A pack of guessing games. Common brand, common developer, no shared content or users between games.
-
 
 ```
 repo/
 ├── apps/
-│   ├── portal/    → hunch.fun (the launcher)
-│   ├── ballpark/  → letsballpark.com
-│   └── toppl/     → toppl.fun
+│   ├── portal/    → doozy.fun (the launcher)
+│   ├── ballpark/  → ballpark.doozy.fun (also letsballpark.com)
+│   └── toppl/     → toppl.doozy.fun
 ├── package.json   (workspace root)
 ├── pnpm-workspace.yaml
 └── turbo.json
@@ -82,9 +81,9 @@ Each app is its own Vercel project pointing at the same GitHub repo. The trick i
 
 | Domain | Points at |
 |---|---|
-| hunch.fun | apps/portal |
-| letsballpark.com | apps/ballpark |
-| toppl.fun | apps/toppl |
+| doozy.fun | apps/portal |
+| ballpark.doozy.fun (+ letsballpark.com) | apps/ballpark |
+| toppl.doozy.fun | apps/toppl |
 
 The portal links out to the other two via the env-var URLs. Subdomains don't share cookies, which is exactly what we want — no cross-game session bleed.
 

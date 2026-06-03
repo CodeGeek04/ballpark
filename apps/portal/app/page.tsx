@@ -6,7 +6,7 @@ export default function Home() {
       <header className="flex justify-between items-start">
         <div>
           <h1 className="font-display font-black text-3xl sm:text-4xl tracking-tight text-[oklch(0.94_0.04_80)]">
-            Hunch
+            Doozy
           </h1>
           <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] opacity-65 text-[oklch(0.88_0.03_80)]">
             four ways to guess

@@ -8,7 +8,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["500", "700"], variab
 const serif = Fraunces({ subsets: ["latin"], weight: ["500", "700", "900"], style: ["italic"], variable: "--font-serif", display: "swap" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_TOPPL_URL || "https://toppl.fun"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_TOPPL_URL || "https://toppl.doozy.fun"),
   title: "Toppl — bigger or smaller",
   description: "Two surprising quantities, head to head. Pick the bigger one. Wrong picks knock you out. Longest streak wins.",
 };

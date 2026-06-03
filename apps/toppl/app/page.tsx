@@ -7,10 +7,10 @@ export default function Home() {
           <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] opacity-65">bigger or smaller</p>
         </div>
         <a
-          href={process.env.NEXT_PUBLIC_PORTAL_URL || "https://hunch.fun"}
+          href={process.env.NEXT_PUBLIC_PORTAL_URL || "https://doozy.fun"}
           className="font-mono text-[11px] uppercase tracking-[0.18em] opacity-70 underline underline-offset-4 decoration-2 hover:opacity-100"
         >
-          ← hunch
+          ← doozy
         </a>
       </header>
 
@@ -31,7 +31,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="text-xs font-mono opacity-50">a hunch game</footer>
+      <footer className="text-xs font-mono opacity-50">a doozy game</footer>
     </main>
   );
 }
