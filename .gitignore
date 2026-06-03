@@ -1,12 +1,33 @@
+# dependencies
 node_modules
+**/node_modules
+
+# build artifacts
 .next
+**/.next
 .vercel
-.env*.local
-.env
-!.env.example
-.DS_Store
-.superpowers
-supabase/.temp
-*.log
+**/.vercel
+.turbo
+**/.turbo
 tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
+
+# env
+.env
+.env.local
+**/.env
+**/.env.local
+**/.env*.local
+!.env.example
+!**/.env.example
+
+# brainstorm artifacts
+.superpowers
+
+# supabase local
+**/supabase/.temp
+
+# misc
+.DS_Store
+*.log
 .claude/

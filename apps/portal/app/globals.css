@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --walnut-top: oklch(0.34 0.04 55);
+  --walnut-bot: oklch(0.22 0.04 50);
+  --walnut-shelf: oklch(0.14 0.03 45);
+  --ember: oklch(0.55 0.22 28);
+}
+
+@layer base {
+  html,
+  body {
+    background: linear-gradient(180deg, var(--walnut-top) 0%, var(--walnut-bot) 100%);
+    color: oklch(0.94 0.04 80);
+    font-family: var(--font-body), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+  body {
+    background-image:
+      repeating-linear-gradient(94deg, transparent 0 6px, rgba(255, 200, 140, 0.05) 6px 7px),
+      radial-gradient(ellipse 80% 50% at 50% 0%, rgba(255, 225, 180, 0.15), transparent 70%),
+      linear-gradient(180deg, var(--walnut-top) 0%, var(--walnut-bot) 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: var(--ember);
+    color: oklch(0.96 0.02 80);
+  }
+}

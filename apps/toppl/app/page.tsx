@@ -1,0 +1,37 @@
+export default function Home() {
+  return (
+    <main className="min-h-dvh w-full px-6 sm:px-10 py-8 flex flex-col gap-10 relative z-10">
+      <header className="flex justify-between items-start">
+        <div>
+          <h1 className="font-display font-black text-3xl sm:text-4xl tracking-tight">Toppl</h1>
+          <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.18em] opacity-65">bigger or smaller</p>
+        </div>
+        <a
+          href={process.env.NEXT_PUBLIC_PORTAL_URL || "https://hunch.fun"}
+          className="font-mono text-[11px] uppercase tracking-[0.18em] opacity-70 underline underline-offset-4 decoration-2 hover:opacity-100"
+        >
+          ← hunch
+        </a>
+      </header>
+
+      <section className="flex-1 flex items-center justify-center">
+        <div className="max-w-2xl text-center space-y-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.22em] opacity-70">coming soon</p>
+          <h2
+            className="font-serif italic font-black text-[clamp(2.5rem,6vw,4.5rem)] leading-[0.95] tracking-[-0.02em]"
+          >
+            Pick the bigger one. <br />
+            <span style={{ color: "var(--ember)" }}>Don{`'`}t miss.</span>
+          </h2>
+          <p className="font-sans text-base sm:text-lg leading-snug opacity-85 max-w-[58ch] mx-auto">
+            Two surprising quantities head to head. You pick which is bigger. Wrong picks knock you out. Longest streak wins.
+            Solo or up to 8 friends, no signup.
+          </p>
+          <div className="pt-4 font-mono text-xs opacity-70 tracking-[0.12em] uppercase">in active development</div>
+        </div>
+      </section>
+
+      <footer className="text-xs font-mono opacity-50">a hunch game</footer>
+    </main>
+  );
+}
