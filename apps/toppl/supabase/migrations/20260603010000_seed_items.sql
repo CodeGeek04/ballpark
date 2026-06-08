@@ -1,7 +1,6 @@
--- Seed: 40 hand-picked items so the game is playable immediately after
--- migration. The LLM batch script can pile on hundreds more.
+-- Seed 40 hand-picked items so the game is immediately playable.
 
-insert into public.items (prompt, value, unit, category) values
+insert into toppl.items (prompt, value, unit, category) values
 ('Taylor Swift Instagram followers', 283000000, 'followers', 'Pop Culture'),
 ('Cristiano Ronaldo Instagram followers', 643000000, 'followers', 'Pop Culture'),
 ('Shah Rukh Khan Instagram followers', 47000000, 'followers', 'Pop Culture'),

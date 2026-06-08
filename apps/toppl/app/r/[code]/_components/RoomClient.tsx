@@ -95,7 +95,7 @@ export function RoomClient({
   useEffect(() => {
     const channel = sb
       .channel(`toppl:${room.code}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "toppl", table: "rooms", filter: `id=eq.${room.id}` }, (payload) => {
         if (payload.eventType === "DELETE") {
           if (meRef.current && !meRef.current.is_host) {
             try { sessionStorage.removeItem(`toppl.player.${room.code}`); } catch {}
@@ -114,17 +114,17 @@ export function RoomClient({
           }
         }
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "players", filter: `room_id=eq.${room.id}` }, async () => {
+      .on("postgres_changes", { event: "*", schema: "toppl", table: "players", filter: `room_id=eq.${room.id}` }, async () => {
         const { data } = await sb.from("players").select("*").eq("room_id", room.id).order("joined_at");
         if (data) setPlayers(data as Player[]);
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rounds", filter: `room_id=eq.${room.id}` }, async (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "toppl", table: "rounds", filter: `room_id=eq.${room.id}` }, async (payload) => {
         const r = payload.new as Round;
         setPicks([]);
         await loadRoundDetail(r);
         setRound(r);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rounds", filter: `room_id=eq.${room.id}` }, async (payload) => {
+      .on("postgres_changes", { event: "UPDATE", schema: "toppl", table: "rounds", filter: `room_id=eq.${room.id}` }, async (payload) => {
         const r = payload.new as Round;
         const current = roundRef.current;
         if (!current || r.id !== current.id) return;
@@ -133,7 +133,7 @@ export function RoomClient({
         }
         setRound(r);
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "picks" }, async (payload) => {
+      .on("postgres_changes", { event: "*", schema: "toppl", table: "picks" }, async (payload) => {
         const p = (payload.new ?? payload.old) as Pick;
         const current = roundRef.current;
         if (!current || !p || p.round_id !== current.id) return;
