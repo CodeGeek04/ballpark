@@ -54,15 +54,19 @@ export function MultiReveal({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6">
-        <RevealCard item={itemA} bigger={biggerId === itemA.id} pickedByMe={myPick?.picked_item_id === itemA.id} tilt={-5} />
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6 max-w-3xl mx-auto">
+        <div className="flex justify-end">
+          <RevealCard item={itemA} bigger={biggerId === itemA.id} pickedByMe={myPick?.picked_item_id === itemA.id} tilt={-5} />
+        </div>
         <div
           className="text-center"
           style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, fontSize: 42, letterSpacing: "-0.04em", transform: "rotate(-4deg)", color: "var(--ember)" }}
         >
           vs
         </div>
-        <RevealCard item={itemB} bigger={biggerId === itemB.id} pickedByMe={myPick?.picked_item_id === itemB.id} tilt={5} />
+        <div className="flex justify-start">
+          <RevealCard item={itemB} bigger={biggerId === itemB.id} pickedByMe={myPick?.picked_item_id === itemB.id} tilt={5} />
+        </div>
       </div>
 
       <div className="rounded-md border-2 border-[var(--ivory)]/30 p-5">
@@ -114,7 +118,7 @@ function RevealCard({ item, bigger, pickedByMe, tilt }: { item: Item; bigger: bo
       initial={{ rotate: tilt }}
       animate={{ rotate: bigger ? tilt * 0.5 : tilt * 2.4, scale: bigger ? 1.03 : 0.95, y: bigger ? 0 : 14 }}
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="relative w-full aspect-[3/4.3] rounded-md p-4 sm:p-5 flex flex-col text-left"
+      className="relative w-full max-w-[240px] aspect-[3/4] rounded-md p-4 sm:p-5 flex flex-col text-left"
       style={{
         background: "var(--ivory)",
         color: "var(--ink)",
@@ -130,22 +134,22 @@ function RevealCard({ item, bigger, pickedByMe, tilt }: { item: Item; bigger: bo
         {(item.category ?? "—").toUpperCase()}
       </span>
       <div
-        className="mt-3 leading-[0.98]"
-        style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, fontSize: "clamp(20px, 3vw, 26px)", letterSpacing: "-0.015em" }}
+        className="mt-3 leading-[1.0]"
+        style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, fontSize: "clamp(17px, 2.2vw, 20px)", letterSpacing: "-0.015em" }}
       >
         {item.prompt}
       </div>
-      <div className="mt-auto pt-3 border-t-[1.5px] border-[var(--ink)]">
-        <div className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-70">{item.unit}</div>
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.15 }}
-          className="mt-1 font-display font-black tnum"
-          style={{ fontSize: "clamp(22px, 3.5vw, 30px)", lineHeight: 1, letterSpacing: "-0.03em", color: bigger ? "var(--ember)" : "var(--ink)" }}
-        >
-          {formatShortValue(Number(item.value))}
-        </motion.div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.45, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        className="flex-1 flex items-center justify-center tnum"
+        style={{ fontFamily: "var(--font-display), sans-serif", fontWeight: 900, fontSize: "clamp(34px, 6vw, 56px)", lineHeight: 1, letterSpacing: "-0.04em", color: bigger ? "var(--ember)" : "var(--ink)" }}
+      >
+        {formatShortValue(Number(item.value))}
+      </motion.div>
+      <div className="pt-3 border-t-[1.5px] border-[var(--ink)] font-mono text-[10px] uppercase tracking-[0.18em] opacity-70">
+        {item.unit}
       </div>
       <motion.div
         initial={{ opacity: 0, scale: 0.7 }}

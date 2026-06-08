@@ -43,6 +43,9 @@ export function RoomClient({
 
   const notifySync = () => {
     channelRef.current?.send({ type: "broadcast", event: "toppl_sync", payload: {} });
+    // Echo to self so the originating client doesn't wait for the 2s poll
+    // before reflecting state changes triggered by its own actions.
+    resync().catch(() => {});
   };
 
   useEffect(() => {

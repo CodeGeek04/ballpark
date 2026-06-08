@@ -116,15 +116,19 @@ export function MultiRound({
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6 mt-2">
-        <Card item={itemA} onPick={pick} picked={picked} tilt={-5} disabled={!!picked} />
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6 mt-2 max-w-3xl mx-auto">
+        <div className="flex justify-end">
+          <Card item={itemA} onPick={pick} picked={picked} tilt={-5} disabled={!!picked} />
+        </div>
         <div
           className="text-center"
           style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, fontSize: 42, letterSpacing: "-0.04em", transform: "rotate(-4deg)", color: "var(--ember)" }}
         >
           vs
         </div>
-        <Card item={itemB} onPick={pick} picked={picked} tilt={5} disabled={!!picked} />
+        <div className="flex justify-start">
+          <Card item={itemB} onPick={pick} picked={picked} tilt={5} disabled={!!picked} />
+        </div>
       </div>
 
       {error && <p className="font-mono text-sm text-center font-bold" style={{ color: "var(--ember)" }}>{error}</p>}
@@ -166,7 +170,7 @@ function Card({ item, onPick, picked, tilt, disabled }: { item: Item; onPick: (i
       animate={{ rotate: isPicked ? 0 : tilt, scale: isPicked ? 1.04 : 1, y: isPicked ? -6 : 0 }}
       whileHover={!disabled ? { scale: 1.02, rotate: 0, y: -6 } : undefined}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="relative w-full aspect-[3/4.3] rounded-md p-4 sm:p-5 flex flex-col text-left disabled:cursor-default cursor-pointer"
+      className="relative w-full max-w-[240px] aspect-[3/4] rounded-md p-4 sm:p-5 flex flex-col text-left disabled:cursor-default cursor-pointer"
       style={{
         background: "var(--ivory)",
         color: "var(--ink)",
@@ -181,16 +185,20 @@ function Card({ item, onPick, picked, tilt, disabled }: { item: Item; onPick: (i
         {(item.category ?? "—").toUpperCase()}
       </span>
       <div
-        className="mt-3 leading-[0.98]"
-        style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, fontSize: "clamp(20px, 3vw, 26px)", letterSpacing: "-0.015em" }}
+        className="mt-3 leading-[1.0]"
+        style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, fontSize: "clamp(17px, 2.2vw, 20px)", letterSpacing: "-0.015em" }}
       >
         {item.prompt}
       </div>
-      <div className="mt-auto pt-3 border-t-[1.5px] border-[var(--ink)]">
+      <div
+        className="flex-1 flex items-center justify-center select-none"
+        style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", fontWeight: 900, color: "var(--ember)", fontSize: "clamp(64px, 9vw, 100px)", lineHeight: 1, opacity: 0.55 }}
+      >
+        ?
+      </div>
+      <div className="pt-3 border-t-[1.5px] border-[var(--ink)]">
         <div className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-70">{item.unit}</div>
-        <div className="mt-1 font-display font-black" style={{ fontFamily: "var(--font-serif), Georgia, serif", fontStyle: "italic", color: "var(--ember)", fontSize: "clamp(22px, 3.5vw, 30px)", lineHeight: 1 }}>
-          ?
-        </div>
+        <div className="mt-0.5 font-mono text-[11px] opacity-50">tap to pick</div>
       </div>
       {isPicked && (
         <motion.div
