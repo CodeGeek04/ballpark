@@ -59,13 +59,12 @@ export function RoomClient({
     if (data) setPicks(data as Pick[]);
   }
 
-  async function loadRoundDetail(r: Round) {
+  async function loadRoundDetail(r: Round): Promise<{ a: Item | null; b: Item | null }> {
     const [{ data: a }, { data: b }] = await Promise.all([
       sb.from("items").select("*").eq("id", r.item_a_id).single(),
       sb.from("items").select("*").eq("id", r.item_b_id).single(),
     ]);
-    if (a) setItemA(a as Item);
-    if (b) setItemB(b as Item);
+    return { a: (a as Item) ?? null, b: (b as Item) ?? null };
   }
 
   async function resync() {
@@ -83,8 +82,16 @@ export function RoomClient({
     if (latestRound) {
       const r = latestRound as Round;
       if (!roundRef.current || r.id !== roundRef.current.id || r.revealed_at !== roundRef.current.revealed_at) {
-        await loadRoundDetail(r);
-        await refetchPicks(r.id);
+        // Fetch everything BEFORE flipping round so React batches all state
+        // updates into a single render. Otherwise the new items render under
+        // the old round (which has revealed_at set), briefly exposing values.
+        const [{ a, b }, { data: picksFresh }] = await Promise.all([
+          loadRoundDetail(r),
+          sb.from("picks").select("*").eq("round_id", r.id),
+        ]);
+        if (a) setItemA(a);
+        if (b) setItemB(b);
+        setPicks((picksFresh as Pick[]) ?? []);
         setRound(r);
       }
     } else if (roundRef.current) {
@@ -123,8 +130,13 @@ export function RoomClient({
       })
       .on("postgres_changes", { event: "INSERT", schema: "toppl", table: "rounds", filter: `room_id=eq.${room.id}` }, async (payload) => {
         const r = payload.new as Round;
+        // Fetch new items BEFORE flipping round into state. Without this the
+        // brief render between setItemA/B and setRound shows the new items
+        // under the still-revealed prior round, exposing the values.
+        const { a, b } = await loadRoundDetail(r);
         setPicks([]);
-        await loadRoundDetail(r);
+        if (a) setItemA(a);
+        if (b) setItemB(b);
         setRound(r);
       })
       .on("postgres_changes", { event: "UPDATE", schema: "toppl", table: "rounds", filter: `room_id=eq.${room.id}` }, async (payload) => {
